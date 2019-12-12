@@ -1,0 +1,46 @@
+TQ2440的u-boot移植，网上已有很多详尽的文章了。这里做一些差异的补充和备注。
+现在，只做到了arp，进一步要移植tftp和flash读写，才能达到基本的boot功能。
+
+armboot.h
+
+armboot.lds 
+开发板采用了64Mb的SDRAM，映射到BANK6即使用了0x30000000 - 0x34000000区间
+这里开头处定义了程序起始地址 . = 0x33F00000, 位于SDRAM的末端1Mb
+
+board.c
+不相关话题：外部中断设置边沿触发，没有起作用。
+
+dm9000x.c, dm9000x.h
+dm9000驱动，从电路图确定使用nGCS4, CMD对应LADDR2，确定以下定义：
+#define CONFIG_DM9000_BASE      0x20000000
+#define DM9000_IO           CONFIG_DM9000_BASE
+#define DM9000_DATA         (CONFIG_DM9000_BASE+4)
+PHY的配置即对应手册中MII那部分。
+
+memsetup.s
+REFCNT的设置，手册中说明64ms refresh period (8K cycle) 
+period = 64000/1024/8 = 7.8us 
+
+s3c2410.h
+
+serial.c
+
+start.s
+整个程序的起始部分，顺序如下：
+reset: 初始化，cpu_init_crit -> memsetup(SDRAM)，将程序重装载到SDRAM对应区域
+（地址在armboot.lds中指定），进入到SDRAM中start_armboot（在board.c中定义）。
+另外，
+_start:	b       reset
+	ldr	pc, _undefined_instruction
+	ldr	pc, _software_interrupt
+	ldr	pc, _prefetch_abort
+	ldr	pc, _data_abort
+	ldr	pc, _not_used
+	ldr	pc, _irq
+	ldr	pc, _fiq
+最开始的这部分，是初始化向量的.
+比如进入中断，CPU到0x18地址取指令，ldr pc, _irq被执行. 
+reset:中添加了一段初始化频率的代码，CPU使用400MHz的FLCK，分频比1:4:8
+
+string.c
+
