@@ -2,6 +2,7 @@
 #include "armboot.h"
 #include "net/arp.h"
 #include "net/net.h"
+#include "Flash.h"
 
 /* for 10 ms clock period @ 50 MHz with 4 bit divider = 1/2 (default) */
 /* and prescaler = 24+1 */
@@ -116,7 +117,9 @@ void start_armboot(void)
 
 	// LEDs config output
 	rGPBCON = 0x00015400; 
+	rGPBDAT = (0b1010 << 5);
 
+/*
 	// KEYs config EINT 0 1 2 4
 	rGPFCON = 0x0000022A; 
 	// EINT4 enable interrupt
@@ -128,16 +131,24 @@ void start_armboot(void)
 
 	timer_init();
 
+*/
 	// UART config GPH2-5 as RX, TX port
 	rGPHCON = 0x00000AA0;
 	// disable pull up fuction
 	rGPHUP = 0x3c;
 	serial_init(&bd);
 
-	rGPBDAT = (0b1010 << 5);
 	NetRxPackets[0] = recive_buff;
 
-	eth_init(&bd);
+	// eth_init(&bd);
+//	nand_init();
+	puts("nand flash id: ");
+	phex(nand_read_id(), 8);
+	putc('\n');
+	puts("1. arp req\n");
+	puts("2. eth_rx\n");
+	puts("3. nand read\n");
+	puts("4. nand prog\n");
 
 	while (1) {
 		len =  readline();
@@ -150,7 +161,12 @@ void start_armboot(void)
 				eth_rx();
 				break;
 			case '3':
-				eth_rx();
+			//	nand_read((int*)0, (int*)0x30000000, 20 * 1024);
+				puts("nand flash read\n");
+				break;
+			case '4':
+			//	nand_prog((int*)0x30000000, (int*)0, 20 * 1024);
+				puts("nand flash program\n");
 				break;
 			}
 		}

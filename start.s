@@ -150,59 +150,80 @@ reset:
 	ldr	r0, =INTSUBMSK
 	str	r1, [r0]
 
-	/* cpu set IRQ enable */
-	mrs	r0,cpsr
-	bic	r0,r0,#0x80
-	msr	cpsr,r0
+#	/* cpu set IRQ enable */
+#	mrs	r0,cpsr
+#	bic	r0,r0,#0x80
+#	msr	cpsr,r0
 
-	/* set FCLK is 400 MHz ! */
-	ldr r1, =V_MPLLCON
-	ldr r0, =MPLLCON
-	str r1, [r0]
-
-	/* MMU_SetAsyncBusMode, CPU use FCLK. */
-	mrc p15,0,r0,c1,c0,0
-	orr r0,r0,#0xc0000000
-	mcr p15,0,r0,c1,c0,0
 
 	/* FCLK:HCLK:PCLK = 1:4:8 */
 	ldr	r0, =CLKDIVN
 	mov	r1, #5
 	str	r1, [r0]
 
+	/* set FCLK is 400 MHz ! */
+	ldr r1, =V_MPLLCON
+	ldr r0, =MPLLCON
+	str r1, [r0]
+
+	/* FastBusMode to AsyncBusMode, CPU use FCLK instand of HCLK. */
+	mrc p15,0,r0,c1,c0,0
+	orr r0,r0,#0xc0000000
+	mcr p15,0,r0,c1,c0,0
+
+.set rGPBCON,			0x56000010
+.set rGPBDAT,			0x56000014
+.set rGPBUP,			0x56000018
+
+	ldr     r0, =rGPBCON
+	ldr     r1, =0x15400
+	str     r1, [r0]
+	ldr     r0, =rGPBDAT
+	ldr     r1, =0b000000000
+	str     r1, [r0]
+	
 	/*
 	 * we do sys-critical inits only at reboot,
 	 * not when booting from ram!
 	 */
-@	bl	cpu_init_crit
+	bl	cpu_init_crit
 
-relocate:
-	/*
-	 * relocate armboot to RAM
-	 */
-	adr	r0, _start		/* r0 <- current position of code */
-	ldr	r2, _armboot_start
-	ldr	r3, _armboot_end
-	sub	r2, r3, r2		/* r2 <- size of armboot */
-	ldr	r1, _TEXT_BASE		/* r1 <- destination address */
-	add	r2, r0, r2		/* r2 <- source end address */
+# relocate:
+# 	/*
+# 	 * relocate armboot to RAM
+# 	 */
+# 	adr	r0, _start		/* r0 <- current position of code */
+# 	ldr	r2, _armboot_start
+# 	ldr	r3, _armboot_end
+# 	sub	r2, r3, r2		/* r2 <- size of armboot */
+# 	ldr	r1, _TEXT_BASE		/* r1 <- destination address */
+# 	add	r2, r0, r2		/* r2 <- source end address */
+# 
+# 	/*
+# 	 * r0 = source address
+# 	 * r1 = target address
+# 	 * r2 = source end address
+# 	 */
+# copy_loop:
+# 	ldmia	r0!, {r3-r10}
+# 	stmia	r1!, {r3-r10}
+# 	cmp	r0, r2
+# 	ble	copy_loop
 
-	/*
-	 * r0 = source address
-	 * r1 = target address
-	 * r2 = source end address
-	 */
-copy_loop:
-	ldmia	r0!, {r3-r10}
-	stmia	r1!, {r3-r10}
-	cmp	r0, r2
-	ble	copy_loop
-
+#	/* set up the stack */
+#	ldr	r0, _armboot_end
+#	add	r0, r0, #CONFIG_STACKSIZE
+#	sub	sp, r0, #12		/* leave 3 words for abort-stack */
 
 	/* set up the stack */
-	ldr	r0, _armboot_end
-	add	r0, r0, #CONFIG_STACKSIZE
+	ldr	r0, =0x32000000
 	sub	sp, r0, #12		/* leave 3 words for abort-stack */
+
+	bl	nand_relocate
+
+	ldr     r0, =rGPBDAT
+	ldr     r1, =0b000000000
+	str     r1, [r0]
 
 	ldr	pc, _start_armboot
 

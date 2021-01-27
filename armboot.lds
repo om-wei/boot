@@ -28,7 +28,7 @@ ENTRY(_start)
 SECTIONS
 {
 
-        . = 0x33F00000;
+        . = 0x30000000;
 		TEXT_BASE = .; 
 
         . = ALIGN(4);
