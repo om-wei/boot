@@ -69,11 +69,12 @@
 // #include "tftp.h"
 // #include "rarp.h"
 // #include "arp.h"
-#define ET_DEBUG
+//#define ET_DEBUG
 
-IPaddr_t NetOurIP = 0;
+IPaddr_t NetOurIP =  0xc0a80107; // local ip address is 192.168.1.7
+IPaddr_t NetOurSubnetMask=0;		/* Our subnet mask (0=unknown)	*/
 IPaddr_t NetOurGatewayIP = 0;
-IPaddr_t NetServerIP = 0;
+IPaddr_t NetServerIP = 0xc0a80108; // server ip 192.168.1.8
 volatile uchar *NetTxPacket = 0;
 volatile uchar * NetRxPackets[PKTBUFSRX];/* Receive packets		*/
 uchar NetOurEther[6]={0xf0, 0x99, 0xbf, 0x5d, 0x45, 0xbc};
@@ -85,13 +86,26 @@ int		NetRxPktLen;		/* Current rx packet length		*/
 
 unsigned NetIPID;
 static rxhand_f *packetHandler;		/* Current RX packet handler		*/
-// static uchar *packetHandler;		/* Current RX packet handler		*/
+static thand_f *timeHandler;		/* Current timeout handler		*/
+static ulong	timeValue;		/* Current timeout value		*/
 
 
 void
 NetSetHandler(rxhand_f * f)
 {
 	packetHandler = f;
+}
+
+
+void
+NetSetTimeout(int iv, thand_f * f)
+{
+	if (iv == 0) {
+		timeHandler = (thand_f *)0;
+	} else {
+		timeHandler = f;
+		timeValue = get_timer(0) + iv;
+	}
 }
 
 int
@@ -106,9 +120,11 @@ NetCksum(uchar * ptr, int len)
 	ulong	xsum;
 
 	xsum = 0;
-	while (len-- > 0)
+	while (len-- > 0) {
 		//xsum += *((ushort *)ptr)++;
-		xsum += *(ptr)++;
+		xsum += *((ushort *)ptr);
+		ptr += sizeof(ushort);
+	}
 	xsum = (xsum & 0xffff) + (xsum >> 16);
 	xsum = (xsum & 0xffff) + (xsum >> 16);
 	return (xsum & 0xffff);
@@ -116,8 +132,7 @@ NetCksum(uchar * ptr, int len)
 
 void ip_to_string (IPaddr_t x, char *s)
 {
-//    sprintf (s,"%d.%d.%d.%d",
-    printf (s,"%d.%d.%d.%d",
+    sprintf (s,"%d.%d.%d.%d",
     	(int)((x >> 24) & 0xff),
 	(int)((x >> 16) & 0xff),
 	(int)((x >>  8) & 0xff),
@@ -127,7 +142,7 @@ void ip_to_string (IPaddr_t x, char *s)
 
 void print_IPaddr (IPaddr_t x)
 {
-    char tmp[12];
+    char tmp[16];
 
     ip_to_string(x, tmp);
 
@@ -185,8 +200,8 @@ NetPrintEther(volatile uchar * addr)
 	
 	for (i = 0; i < 6; i++)
 	{
-		//printf("%02x", *(addr+i));
-		phex(*(addr+i), 2);
+		printf("%02x", *(addr+i));
+		//phex(*(addr+i), 2);
 		
 		if (i != 5)
 			printf(":");
@@ -215,8 +230,9 @@ NetSetIP(volatile uchar * xip, IPaddr_t dest, int dport, int sport, int len)
 	ip->ip_tos   = 0;
 	ip->ip_len   = SWAP16(IP_HDR_SIZE + len);
 	// ip->ip_id    = SWAP16(NetIPID++);
-	NetIPID++;
 	ip->ip_id    = SWAP16(NetIPID);
+	NetIPID++;
+
 	ip->ip_off   = SWAP16c(0x4000);	/* No fragmentation */
 	ip->ip_ttl   = 255;
 	ip->ip_p     = 17;		/* UDP */
@@ -271,7 +287,53 @@ NetReceive(volatile uchar * pkt, int len)
 
 	switch(x) {
 	case PROT_ARP:
+		/*
+		 * We have to deal with two types of ARP packets:
+                 * - REQUEST packets will be answered by sending  our
+                 *   IP address - if we know it.
+                 * - REPLY packates are expected only after we asked
+                 *   for the TFTP server's or the gateway's ethernet
+                 *   address; so if we receive such a packet, we set
+                 *   the server ethernet address
+		 */
+#ifdef ET_DEBUG
+		printf("Got ARP\n");
+#endif
 		arp = (ARP_t *)ip;
+		if (len < ARP_HDR_SIZE) {
+			printf("bad length %d < %d\n", len, ARP_HDR_SIZE);
+			return;
+		}
+		if (SWAP16(arp->ar_hrd) != ARP_ETHER) {
+			return;
+		}
+		if (SWAP16(arp->ar_pro) != PROT_IP) {
+			return;
+		}
+		if (arp->ar_hln != 6) {
+			return;
+		}
+		if (arp->ar_pln != 4) {
+			return;
+		}
+
+		if (NetOurIP == 0) {
+#ifdef ET_DEBUG
+			printf("We don't know our own IP -> Nothing to do\n");
+#endif
+			return;
+		}
+
+		
+		{
+			IPaddr_t ip = NetReadIP((uchar*)&arp->ar_data[16]);
+			if (ip != NetOurIP) {
+#ifdef ET_DEBUG
+				printf("Requested IP is not ours\n");
+#endif			
+				return;
+			}
+		}
 
 		switch(SWAP16(arp->ar_op)) {
 		case ARPOP_REQUEST:		/* reply with our Ether address	*/
@@ -282,8 +344,8 @@ NetReceive(volatile uchar * pkt, int len)
 			arp->ar_op = SWAP16(ARPOP_REPLY);
 			NetCopyEther(&arp->ar_data[0],  NetOurEther);
 			NetWriteIP(  &arp->ar_data[6],  NetOurIP);
-			NetCopyEther(&arp->ar_data[10], NetOurEther);
-			NetWriteIP(  &arp->ar_data[16], NetOurIP);
+			NetCopyEther(&arp->ar_data[10], NetServerEther);
+			NetWriteIP(  &arp->ar_data[16], NetServerIP);
 			NetSendPacket((uchar *)et,((uchar *)arp-pkt)+ARP_HDR_SIZE);
 			return;
 		case ARPOP_REPLY:		/* set TFTP server eth addr	*/
@@ -303,6 +365,7 @@ NetReceive(volatile uchar * pkt, int len)
 			NetCopyEther(NetServerEther, &arp->ar_data[0]);
 			printf("server eth addr: ");
 			NetPrintEther(NetServerEther);
+
 			// (*packetHandler)(0,0,0,0);	/* start TFTP */
 			return;
 		}
@@ -335,7 +398,7 @@ NetReceive(volatile uchar * pkt, int len)
 		if (!NetCksumOk((uchar *)ip, IP_HDR_SIZE_NO_UDP / 2)) {
 			printf("checksum bad\n");
 			return;
-		}
+		} 
 		if (NetOurIP) {
 		    IPaddr_t ipaddr = NetReadIP((uchar*)&ip->ip_dst);
 		    if (ipaddr != NetOurIP && ipaddr != 0xFFFFFFFF)
@@ -391,6 +454,7 @@ NetReceive(volatile uchar * pkt, int len)
 #ifdef ET_DEBUG
 		printf("Got unknown protocol %04x\n",x);
 #endif
+		break;
 	}
 }
 

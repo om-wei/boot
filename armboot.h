@@ -1,18 +1,20 @@
 /* _ARMBOOT_H_ */
 #ifndef	_ARMBOOT_H_  
 #define	_ARMBOOT_H_
+#include <stdarg.h>
 
-void phex(int hex, char units);
 #define NULL	0
-
 #define CFG_CBSIZE		256
-#define puts(a)	serial_puts(a)
-#define putc(a) serial_putc(a)
-#define gets()	serial_gets()
-#define getc()	serial_getc()
-#define printf(fmt,args...) puts(fmt)
-
 #define CONFIG_NR_DRAM_BANKS	1
+
+/* the PWM TImer 4 uses a counter of 10000 for 10 ms, so we need */
+/* it to wrap 100 times (total 1000000) to get 1 sec. */
+#define CFG_HZ                  1000000
+
+extern char *tftp_filename;
+extern unsigned long load_addr;
+extern volatile char flag_timer;
+
 
 typedef unsigned short ushort;
 typedef unsigned char uchar;
@@ -35,7 +37,7 @@ typedef struct bd_info {
     int         bi_baudrate;    /* serial console baudrate */
     unsigned long   bi_ip_addr; /* IP Address */
     unsigned char   bi_enetaddr[6]; /* Ethernet adress */
-//    env_t          *bi_env;
+/*    env_t          *bi_env; */
     ulong           bi_arch_number; /* unique id for this board */
     ulong           bi_boot_params; /* where this board expects params */
     struct              /* RAM configuration */
@@ -68,7 +70,45 @@ void *	memset		(void * s, char c, size_t count);
 void *	memmove		(void * dest, const void *src, size_t count);
 char *	strchr		(const char * s, int c);
 
+/* arm/vsprintf.c */
+ulong	simple_strtoul	(const char *cp,char **endp,unsigned int base);
+long	simple_strtol	(const char *cp,char **endp,unsigned int base);
+void	panic		(const char *fmt, ...);
+int	sprintf		(char * buf, const char *fmt, ...);
+int 	vsprintf	(char *buf, const char *fmt, va_list args);
+
+/* board.c */
+void nand_read_from_zero(int *to_ram, int length);
+void nand_prog_to_zero(int *from_ram, int length);
+void arp_req(void);
+void tftp_req(char *fname, long raddr);
+int readline(void);
+
 void udelay(unsigned long usec);
+/* cpu/.../interrupt.c */
+ulong get_timer(ulong base);
+
+/*
+ * STDIO based functions (can always be used)
+ */
+
+/* serial stuff */
+void	serial_printf (const char *fmt, ...);
+
+/* stdin */
+int	getc(void);
+int	tstc(void);
+
+/* stdout */
+void	putc(const char c);
+void	puts(const char *s);
+void	printf(const char *fmt, ...);
+
+/* stderr */
+#define eputc(c)		fputc(stderr, c)
+#define eputs(s)		fputs(stderr, s)
+#define eprintf(fmt,args...)	fprintf(stderr,fmt ,##args)
+
 
 /* Byte swapping stuff */
 #define SWAP16(x)	((((x) & 0xff) << 8) | ((x) >> 8))

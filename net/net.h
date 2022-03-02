@@ -22,7 +22,8 @@
 #define PKTBUFSRX	4
 #define PKTALIGN	32
 
-typedef ulong		IPaddr_t;
+/* typedef ulong		IPaddr_t; */
+typedef unsigned long		IPaddr_t;
 
 
 /*
@@ -259,7 +260,6 @@ extern uint	NetCksum(uchar *, int);		/* Calculate the checksum	*/
 
 /* Set callbacks */
 extern void	NetSetHandler(rxhand_f *);	/* Set RX packet handler	*/
-// extern void	NetSetHandler(uchar *);	/* Set RX packet handler	*/
 extern void	NetSetTimeout(int, thand_f *);	/* Set timeout handler		*/
 
 /* Transmit "NetTxPacket" */

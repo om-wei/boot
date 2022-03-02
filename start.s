@@ -150,10 +150,10 @@ reset:
 	ldr	r0, =INTSUBMSK
 	str	r1, [r0]
 
-#	/* cpu set IRQ enable */
-#	mrs	r0,cpsr
-#	bic	r0,r0,#0x80
-#	msr	cpsr,r0
+	/* cpu set IRQ enable */
+	mrs	r0,cpsr
+	bic	r0,r0,#0x80
+	msr	cpsr,r0
 
 
 	/* FCLK:HCLK:PCLK = 1:4:8 */
@@ -171,24 +171,15 @@ reset:
 	orr r0,r0,#0xc0000000
 	mcr p15,0,r0,c1,c0,0
 
-.set rGPBCON,			0x56000010
-.set rGPBDAT,			0x56000014
-.set rGPBUP,			0x56000018
 
-	ldr     r0, =rGPBCON
-	ldr     r1, =0x15400
-	str     r1, [r0]
-	ldr     r0, =rGPBDAT
-	ldr     r1, =0b000000000
-	str     r1, [r0]
-	
 	/*
 	 * we do sys-critical inits only at reboot,
 	 * not when booting from ram!
 	 */
 	bl	cpu_init_crit
 
-# relocate:
+# NORFLASH USE THIS CODE
+#relocate:
 # 	/*
 # 	 * relocate armboot to RAM
 # 	 */
@@ -204,26 +195,25 @@ reset:
 # 	 * r1 = target address
 # 	 * r2 = source end address
 # 	 */
-# copy_loop:
+#copy_loop:
 # 	ldmia	r0!, {r3-r10}
 # 	stmia	r1!, {r3-r10}
 # 	cmp	r0, r2
 # 	ble	copy_loop
 
-#	/* set up the stack */
-#	ldr	r0, _armboot_end
-#	add	r0, r0, #CONFIG_STACKSIZE
-#	sub	sp, r0, #12		/* leave 3 words for abort-stack */
-
 	/* set up the stack */
-	ldr	r0, =0x32000000
+	ldr	r0, _armboot_end
+	add	r0, r0, #CONFIG_STACKSIZE
 	sub	sp, r0, #12		/* leave 3 words for abort-stack */
 
-	bl	nand_relocate
+	/* set up the stack */
+#	ldr	r0, =0x32000000
+#	sub	sp, r0, #12		/* leave 3 words for abort-stack */
 
-	ldr     r0, =rGPBDAT
-	ldr     r1, =0b000000000
-	str     r1, [r0]
+.globl	Ram_pr				/* global var used for nandFlash read&write pr */
+Ram_pr:					/* place it here, for NOT beyond 4K RAM */
+	.word(0xA5A5)
+	bl	relocate_ram		/* NANDFLASH USE THIS CODE */
 
 	ldr	pc, _start_armboot
 
@@ -247,8 +237,8 @@ cpu_init_crit:
 	 * flush v4 I/D caches
 	 */
 	mov	r0, #0
-	mcr	p15, 0, r0, c7, c7, 0	// flush v3/v4 cache
-	mcr	p15, 0, r0, c8, c7, 0	// flush v4 TLB
+	mcr	p15, 0, r0, c7, c7, 0	/* flush v3/v4 cache */
+	mcr	p15, 0, r0, c8, c7, 0	/* flush v4 TLB */
 
 	/*
 	 * disable MMU stuff and caches

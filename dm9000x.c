@@ -54,7 +54,7 @@ TODO: Homerun NIC and longrun NIC are not functional, only internal at the
 
 #define CONFIG_DRIVER_DM9000
 #define CONFIG_DM9000_USE_16BIT
-#define CONFIG_DM9000_DEBUG
+//#define CONFIG_DM9000_DEBUG
 
 
 #ifdef CONFIG_DRIVER_DM9000
@@ -109,7 +109,7 @@ void eth_halt(void);
 static int dm9000_probe(void);
 static u16 phy_read(int);
 static void phy_write(int, u16);
-static u16 read_srom_word(int);
+//static u16 read_srom_word(int);
 static u8 DM9000_ior(int);
 static void DM9000_iow(int reg, u8 value);
 
@@ -123,6 +123,7 @@ static void DM9000_iow(int reg, u8 value);
 #define DM9000_inl(r) (*(volatile u32 *)r)
 
 #ifdef CONFIG_DM9000_DEBUG
+/*
 static void
 dump_regs(void)
 {
@@ -137,6 +138,7 @@ dump_regs(void)
 	DM9000_DBG("ISR   (0xFE): %02x\n", DM9000_ior(ISR));
 	DM9000_DBG("\n");
 }
+*/
 #endif				/*  */
 
 /*
@@ -284,7 +286,6 @@ int
 eth_init(bd_t * bd)
 {
 	int i, oft, lnk;
-	int tmp;
 	DM9000_DBG("eth_init()\n");
 
 	/* RESET device */
@@ -325,11 +326,7 @@ eth_init(bd_t * bd)
 
 	/* read back mac, just to be sure */
 	for (i = 0, oft = 0x10; i < 6; i++, oft++) {
-		// DM9000_DBG("%02x:", DM9000_ior(oft));
-		tmp = DM9000_ior(oft);
-		putc(((tmp>>4)&0x0f) + '0');
-		putc((tmp&0x0f) + '0');
-		putc(':');
+		DM9000_DBG("%02x:", DM9000_ior(oft));
 	}
 	DM9000_DBG("\n");
 
@@ -383,7 +380,7 @@ eth_send(volatile void *packet, int length)
 	DM9000_DBG("eth_send: length: %d\n", length);
 	for (i = 0; i < length; i++) {
 		if (i % 8 == 0)
-			DM9000_DBG("\nSend: 02x: ", i);
+			DM9000_DBG("\nSend: %02x: ", i);
 		DM9000_DBG("%02x ", ((unsigned char *) packet)[i]);
 	} DM9000_DBG("\n");
 
@@ -542,6 +539,7 @@ eth_rx(void)
 /*
   Read a word data from SROM
 */
+/*
 static u16
 read_srom_word(int offset)
 {
@@ -551,7 +549,7 @@ read_srom_word(int offset)
 	DM9000_iow(DM9000_EPCR, 0x0);
 	return (DM9000_ior(DM9000_EPDRL) + (DM9000_ior(DM9000_EPDRH) << 8));
 }
-
+*/
 /*
    Read a byte from I/O port
 */

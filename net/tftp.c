@@ -4,15 +4,15 @@
  *	Copyright 2000 DENX Software Engineering, Wolfgang Denk, wd@denx.de
  */
 
-#include <armboot.h>
-#include <command.h>
+#include "../armboot.h"
+/* #include <command.h> */
 #include "net.h"
 #include "tftp.h"
-#include "bootp.h"
+/* #include "bootp.h" */
 
-#undef	ET_DEBUG
+//#undef	ET_DEBUG
 
-#if (CONFIG_COMMANDS & CFG_CMD_NET)
+//#if (CONFIG_COMMANDS & CFG_CMD_NET)
 
 #define WELL_KNOWN_PORT	69		/* Well known TFTP port #		*/
 #define TIMEOUT		2		/* Seconds to timeout for a lost pkt	*/
@@ -42,16 +42,17 @@ static int	TftpState;
 #define STATE_BAD_MAGIC	4
 
 #define DEFAULT_NAME_LEN	(8 + 4 + 1)
-static char default_filename[DEFAULT_NAME_LEN];
-static char *tftp_filename;
+//static char default_filename[DEFAULT_NAME_LEN];
 
 static __inline__ void
 store_block (unsigned block, uchar * src, unsigned len)
 {
-	ulong offset = block * 512, newsize = offset + len;
+	//ulong offset = block * 512, newsize = offset + len;
+	ulong offset = block * 512;
 	(void)memcpy((void *)(load_addr + offset), src, len);
-	if (NetBootFileXferSize < newsize)
-		NetBootFileXferSize = newsize;
+	//printf("store block in %x", load_addr + offset);
+	//if (NetBootFileXferSize < newsize)
+	//	NetBootFileXferSize = newsize;
 }
 
 static void TftpSend (void);
@@ -76,7 +77,10 @@ TftpSend (void)
 
 	case STATE_RRQ:
 		xp = pkt;
-		*((ushort *)pkt)++ = SWAP16c(TFTP_RRQ);
+		//*((ushort *)pkt)++ = SWAP16c(TFTP_RRQ);
+		*((ushort *)pkt) = SWAP16c(TFTP_RRQ);
+		pkt += sizeof(ushort);
+
 		strcpy ((char *)pkt, tftp_filename);
 		pkt += strlen(tftp_filename) + 1;
 		strcpy ((char *)pkt, "octet");
@@ -86,15 +90,25 @@ TftpSend (void)
 
 	case STATE_DATA:
 		xp = pkt;
-		*((ushort *)pkt)++ = SWAP16c(TFTP_ACK);
-		*((ushort *)pkt)++ = SWAP16(TftpBlock);
+		//*((ushort *)pkt)++ = SWAP16c(TFTP_ACK);
+		//*((ushort *)pkt)++ = SWAP16(TftpBlock);
+		*((ushort *)pkt) = SWAP16c(TFTP_ACK);
+		pkt += sizeof(ushort);
+		*((ushort *)pkt) = SWAP16(TftpBlock);
+		pkt += sizeof(ushort);
+
 		len = pkt - xp;
 		break;
 
 	case STATE_TOO_LARGE:
 		xp = pkt;
-		*((ushort *)pkt)++ = SWAP16c(TFTP_ERROR);
-		*((ushort *)pkt)++ = SWAP16(3);
+		//*((ushort *)pkt)++ = SWAP16c(TFTP_ERROR);
+		//*((ushort *)pkt)++ = SWAP16(3);
+		*((ushort *)pkt) = SWAP16c(TFTP_ERROR);
+		pkt += sizeof(ushort);
+		*((ushort *)pkt) = SWAP16(3);
+		pkt += sizeof(ushort);
+
 		strcpy ((char *)pkt, "File too large");
 		pkt += 14 /*strlen("File too large")*/ + 1;
 		len = pkt - xp;
@@ -102,8 +116,13 @@ TftpSend (void)
 
 	case STATE_BAD_MAGIC:
 		xp = pkt;
-		*((ushort *)pkt)++ = SWAP16c(TFTP_ERROR);
-		*((ushort *)pkt)++ = SWAP16(2);
+		//*((ushort *)pkt)++ = SWAP16c(TFTP_ERROR);
+		//*((ushort *)pkt)++ = SWAP16(2);
+		*((ushort *)pkt) = SWAP16c(TFTP_ERROR);
+		pkt += sizeof(ushort);
+		*((ushort *)pkt) = SWAP16(2);
+		pkt += sizeof(ushort);
+
 		strcpy ((char *)pkt, "File has bad magic");
 		pkt += 18 /*strlen("File has bad magic")*/ + 1;
 		len = pkt - xp;
@@ -121,6 +140,7 @@ static void
 TftpHandler (uchar * pkt, unsigned dest, unsigned src, unsigned len)
 {
     	ushort proto;
+
 	if (dest != TftpOurPort) {
 		return;
 	}
@@ -134,7 +154,10 @@ TftpHandler (uchar * pkt, unsigned dest, unsigned src, unsigned len)
 	len -= 2;
 
     	/* warning: don't use increment (++) in SWAP() macros!! */
-        proto = *((ushort *)pkt)++;
+        //proto = *((ushort *)pkt)++;
+        proto = *((ushort *)pkt);
+	pkt += sizeof(ushort);
+
     	proto = SWAP16(proto);
 	switch (proto) {
 
@@ -162,7 +185,7 @@ TftpHandler (uchar * pkt, unsigned dest, unsigned src, unsigned len)
 					"First block is not block 1 (%d)\n"
 					"Starting again\n\n",
 					TftpBlock);
-				NetStartAgain ();
+				//NetStartAgain ();
 				break;
 			}
 		}
@@ -190,16 +213,16 @@ TftpHandler (uchar * pkt, unsigned dest, unsigned src, unsigned len)
 			 *	We received the whole thing.  Try to
 			 *	run it.
 			 */
-			puts ("\ndone\n");
-			NetState = NETLOOP_SUCCESS;
+			puts ("\nfile recive done\n");
+			// NetState = NETLOOP_SUCCESS;
 		}
 		break;
 
 	case TFTP_ERROR:
 		printf ("\nTFTP error: '%s' (%d)\n",
 					pkt + 2, SWAP16(*(ushort *)pkt));
-		puts ("Starting again\n\n");
-		NetStartAgain ();
+		//puts ("Starting again\n\n");
+		//NetStartAgain ();
 		break;
 	}
 }
@@ -210,7 +233,7 @@ TftpTimeout (void)
 {
 	if (++TftpTimeoutCount >= TIMEOUT_COUNT) {
 		puts ("\nRetry count exceeded; starting again\n");
-		NetStartAgain ();
+		//NetStartAgain ();
 	} else {
 		puts ("T ");
 		NetSetTimeout (TIMEOUT * CFG_HZ, TftpTimeout);
@@ -232,7 +255,7 @@ TftpStart (void)
 		NetServerEther[5]
 	);
 #endif /* DEBUG */
-
+/*
 	if (BootFile[0] == '\0') {
 		sprintf(default_filename, "%02lX%02lX%02lX%02lX.img",
 			NetOurIP & 0xFF,
@@ -246,6 +269,7 @@ TftpStart (void)
 	} else {
 		tftp_filename = BootFile;
 	}
+*/
 
 	puts ("TFTP from server ");	print_IPaddr (NetServerIP);
 	puts ("; our IP address is ");	print_IPaddr (NetOurIP);
@@ -263,7 +287,7 @@ TftpStart (void)
 	putc ('\n');
 
 	printf ("Filename '%s'.", tftp_filename);
-
+/*
 	if (NetBootFileSize) {
 	    printf (" Size is %d%s kB => %x Bytes",
 		NetBootFileSize/2,
@@ -272,7 +296,7 @@ TftpStart (void)
 	}
 
 	putc ('\n');
-
+*/
 	printf ("Load address: 0x%lx\n", load_addr);
 
 	puts ("Loading: *\b");
@@ -288,4 +312,4 @@ TftpStart (void)
 	TftpSend ();
 }
 
-#endif /* CFG_CMD_NET */
+//#endif /* CFG_CMD_NET */
