@@ -27,7 +27,3 @@ tftp a.bin 32000000     //下载tftp服务器目录下的a.bin 到开发板SDRAM
 tftp file 32100000      //下载file文件到0x32100000
 run 32000000            //开发板从SDRAM的0x32000000开始执行，即运行a.bin程序
 ```
-boot链接最终目标文件时，没有使用gcc而是用ld。
-gcc会自动链接必要的库文件，但是boot用gcc链接会有\_start多重定义的问题。
-例如vsprintf.c中使用了除法和取余运算，这是C语言支持的，gcc的libgcc.a文件有对这些运算的支持。
-使用ld不会自动链接gcc的libgcc.a文件，在Makefile里需要指定它的路径，位于gcc-arm-none-eabi工具链目录下。
