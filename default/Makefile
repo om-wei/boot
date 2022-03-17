@@ -15,7 +15,7 @@ COMMON = -mcpu=$(CPU)
 
 ## Compile options common for all C compilation units.
 CFLAGS = $(COMMON)
-CFLAGS += -Os -fno-builtin -Wall 
+CFLAGS += -Os -fno-builtin -Wall
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -23,14 +23,14 @@ ASMFLAGS = $(COMMON)
 
 ## Linker flags
 # LDFLAGS = $(COMMON)
-LDFLAGS = -T armboot.lds 
-LDFLAGS +=  -Map=boot.map
+#LDFLAGS = -T armboot.lds 
+#LDFLAGS +=  -Map=boot.map
+LDFLAGS = -Wl,-T armboot.lds 
+LDFLAGS +=  -Wl,-Map=boot.map
 
 ## Libraries
 # LIBS = -lm -lc 
-#LIBS = libgcc.a
-LIBS = ~/Applications/gcc-arm-none-eabi-4_7-2012q4/lib/gcc/arm-none-eabi/4.7.3/libgcc.a
-LIBS += ~/Applications/gcc-arm-none-eabi-4_7-2012q4/arm-none-eabi/lib/libc.a 
+LIBS =  -nostdlib -lgcc -lc
 
 ## Objects that must be built in order to link
 OBJECTS = start.o memsetup.o Flash.o board.o main.o
@@ -87,9 +87,9 @@ main.o: ../main.c
 # .s.o:
 #	$(AS) $(ASMLAGS) -c-o $*.s ./$< 	
 
-##Link
+##Link 
 $(TARGET): $(OBJECTS)
-	$(LD) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET)
+	$(CC) $(LDFLAGS) $(OBJECTS) $(LINKONLYOBJECTS) $(LIBDIRS) $(LIBS) -o $(TARGET) 
 
 %.bin: $(TARGET)
 	arm-none-eabi-objcopy -O binary $< $@

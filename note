@@ -1,5 +1,4 @@
 TQ2440的u-boot移植，网上已有很多详尽的文章了。这里做一些差异的补充和备注。
-现在，只做到了arp，进一步要移植tftp和flash读写，才能达到基本的boot功能。
 
 在sdram中调试boot时，
 1，start.s 屏蔽cpu_init_crit这里有SDRAM初始化 
@@ -10,7 +9,6 @@ armboot.h
 
 armboot.lds 
 开发板采用了64MB的SDRAM，映射到BANK6即使用了0x30000000 - 0x34000000区间
-这里开头处定义了程序起始地址 . = 0x33F00000, 位于SDRAM的末端1MB
 
 board.c
 不相关话题：外部中断设置边沿触发，没有起作用。

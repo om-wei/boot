@@ -206,10 +206,6 @@ reset:
 	add	r0, r0, #CONFIG_STACKSIZE
 	sub	sp, r0, #12		/* leave 3 words for abort-stack */
 
-	/* set up the stack */
-#	ldr	r0, =0x32000000
-#	sub	sp, r0, #12		/* leave 3 words for abort-stack */
-
 .globl	Ram_pr				/* global var used for nandFlash read&write pr */
 Ram_pr:					/* place it here, for NOT beyond 4K RAM */
 	.word(0xA5A5)

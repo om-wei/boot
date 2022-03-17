@@ -89,7 +89,7 @@ void nand_prog_to_zero(int *from_ram, int length)
 }
 
 /* relocate_ram  function run in 4k Stepping-Stone SRAM, 
-   so do _not_ call anther thing which beyond frist 4K in boot.bin */
+   so do _not_ call anything which beyond frist 4K in boot.bin */
 void relocate_ram(void)
 {
 	nand_init();
